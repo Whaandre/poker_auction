@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Card Auction Game Client</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #messages { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
+    #input { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Card Auction Game Client</h1>
+  <div id="messages"></div>
+  <div id="input">
+    <input type="text" id="msgInput" placeholder="Type a message">
+    <button id="sendBtn">Send</button>
+  </div>
+
+  <script type="module" src="./dist/main.js"></script>
+</body>
+</html>
