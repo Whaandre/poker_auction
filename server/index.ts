@@ -1,73 +1,43 @@
 import WebSocket, { WebSocketServer } from "ws";
-import { Player } from "./types";
 
-// ----------------------------
-// Server Configuration
-// ----------------------------
-const PORT = 8080;
-const wss = new WebSocketServer({ port: PORT });
+type Player = {
+  ws: WebSocket;
+  id: string;
+};
 
-console.log(`WebSocket server started on ws://localhost:${PORT}`);
+const wss = new WebSocketServer({ port: 8080 });
+console.log("WebSocket server running on ws://localhost:8080");
 
-// ----------------------------
-// Game State
-// ----------------------------
-let players: Player[] = [];
-let playerIdCounter = 1;
+const players: Player[] = [];
+let nextId = 1;
 
-// ----------------------------
-// Handle Connections
-// ----------------------------
-wss.on("connection", (ws: WebSocket) => {
-  const playerId = `Player${playerIdCounter++}`;
-  console.log(`${playerId} connected`);
-
-  // Add player to game state
-  const newPlayer: Player = {
-    id: playerId,
-    money: 1000,
-    hiddenCard: null, // will assign later
-    ownedCards: [],
-    guesses: null,
+wss.on("connection", (ws) => {
+  const player: Player = {
+    ws,
+    id: `Player${nextId++}`,
   };
-  players.push(newPlayer);
+  players.push(player);
 
-  // Send welcome message to the player
-  ws.send(JSON.stringify({ type: "welcome", playerId }));
+  console.log(`${player.id} connected`);
 
-  // Broadcast new player joined
-  broadcast({ type: "playerJoined", playerId, totalPlayers: players.length });
+  // Send welcome message
+  ws.send(JSON.stringify({ type: "welcome", playerId: player.id }));
 
-  // Handle messages from client
-  ws.on("message", (data) => {
-    try {
-      const msg = JSON.parse(data.toString());
-      console.log(`Received from ${playerId}:`, msg);
-
-      // Example: echo message back to all players
-      if (msg.type === "chat") {
-        broadcast({ type: "chat", from: playerId, message: msg.message });
-      }
-    } catch (err) {
-      console.error("Invalid message:", data.toString());
+  // Broadcast new player to all others
+  players.forEach((p) => {
+    if (p.ws.readyState === WebSocket.OPEN) {
+      p.ws.send(JSON.stringify({ type: "playerJoined", playerId: player.id, totalPlayers: players.length }));
     }
   });
 
-  // Handle disconnect
   ws.on("close", () => {
-    console.log(`${playerId} disconnected`);
-    players = players.filter((p) => p.id !== playerId);
-    broadcast({ type: "playerLeft", playerId, totalPlayers: players.length });
+    console.log(`${player.id} disconnected`);
+    // Remove player from list
+    const idx = players.indexOf(player);
+    if (idx !== -1) players.splice(idx, 1);
+  });
+
+  ws.on("message", (data) => {
+    console.log(`${player.id} sent: ${data.toString()}`);
   });
 });
-
-// ----------------------------
-// Broadcast to all connected clients
-// ----------------------------
-function broadcast(message: any) {
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(message));
-    }
-  });
-}
