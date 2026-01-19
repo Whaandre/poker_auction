@@ -1,40 +1,27 @@
-import WebSocket, { WebSocketServer } from "ws";
+import { WebSocketServer } from "ws";
+import { addPlayer, removePlayer } from "./game";
+import * as readline from "readline";
 
-type Player = {
-  ws: WebSocket;
-  id: string;
-};
+const rl = readline.createInterface({
+  input: process.stdin,
+  output: process.stdout
+});
 
 const wss = new WebSocketServer({ port: 8080 });
 console.log("WebSocket server running on ws://localhost:8080");
 
-const players: Player[] = [];
-let nextId = 1;
+function ask(question: string): Promise<string> {
+  return new Promise((resolve) => 
+    rl.question(question, resolve));
+}
 
-wss.on("connection", (ws) => {
-  const player: Player = {
-    ws,
-    id: `Player${nextId++}`,
-  };
-  players.push(player);
-
-  console.log(`${player.id} connected`);
-
-  // Send welcome message
-  ws.send(JSON.stringify({ type: "welcome", playerId: player.id }));
-
-  // Broadcast new player to all others
-  players.forEach((p) => {
-    if (p.ws.readyState === WebSocket.OPEN) {
-      p.ws.send(JSON.stringify({ type: "playerJoined", playerId: player.id, totalPlayers: players.length }));
-    }
-  });
+wss.on("connection", async (ws) => {
+  const name = await ask("Enter your name: ");
+  const player = addPlayer(ws, name);
 
   ws.on("close", () => {
     console.log(`${player.id} disconnected`);
-    // Remove player from list
-    const idx = players.indexOf(player);
-    if (idx !== -1) players.splice(idx, 1);
+    removePlayer(player);
   });
 
   ws.on("message", (data) => {

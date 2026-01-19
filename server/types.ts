@@ -1,3 +1,5 @@
+import { WebSocket } from "ws";
+
 export interface Card {
   suit: "H" | "D" | "C" | "S";
   rank: number; // 2-14 (11=J,12=Q,13=K,14=A)
@@ -9,11 +11,12 @@ export interface Guess {
 }
 
 export interface Player {
+  ws: WebSocket;
   id: string;
   money: number;
   hiddenCard: Card | null;
   ownedCards: Card[];
-  guesses: Guess | null;
+  guess: Guess | null;
 }
 
 export interface Lot {
