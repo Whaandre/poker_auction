@@ -6,7 +6,7 @@ export interface Card {
 }
 
 export interface Guess {
-  targetPlayerId: string;
+  targetPlayer: Player;
   card: Card;
 }
 
@@ -17,15 +17,17 @@ export interface Player {
   hiddenCard: Card | null;
   ownedCards: Card[];
   guess: Guess | null;
+  waitingFor: "bid" | "guess" | null;
 }
 
 export interface Lot {
   id: number;
   cards: Card[];
+  bids: Bid[];
 }
 
 export interface Bid {
-  playerId: string;
+  player: Player;
   lotId: number;
   amount: number;
 }

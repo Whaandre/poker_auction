@@ -1,5 +1,5 @@
 import { WebSocketServer } from "ws";
-import { addPlayer, removePlayer } from "./game";
+import { addPlayer, removePlayer, receiveBid, receiveGuess } from "./game";
 import * as readline from "readline";
 
 const rl = readline.createInterface({
@@ -25,6 +25,12 @@ wss.on("connection", async (ws) => {
   });
 
   ws.on("message", (data) => {
-    console.log(`${player.id} sent: ${data.toString()}`);
+    if (player.waitingFor === "bid") {
+      receiveBid(player, JSON.parse(data.toString()));
+    } else if (player.waitingFor === "guess") {
+      receiveGuess(player, JSON.parse(data.toString()));
+    } else {
+      console.log(`${player.id} sent: ${data.toString()}`);
+    }
   });
 });
