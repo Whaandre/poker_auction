@@ -6,9 +6,8 @@ const gameState: GameState = {
     players: [],
     lots: [],
     currentRound: 0,
-    bids: []
 };
-const rounds: number[][] = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13]];
+const rounds: number[][] = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11], [12]];
 
 function startGame() {
     console.log("Starting Game...");
@@ -34,7 +33,7 @@ function startAuction() {
     console.log(`Starting Auction for Round ${gameState.currentRound + 1}`);
     gameState.players.forEach((p) => {
         if (p.ws.readyState === WebSocket.OPEN) {
-            p.ws.send(JSON.stringify({ type: "startAuction", lots: rounds[gameState.currentRound] }));
+            p.ws.send(JSON.stringify({ type: "startAuction", lots: rounds[gameState.currentRound], money: p.money }));
         }
         p.waitingFor = "bid";
     });
@@ -42,7 +41,29 @@ function startAuction() {
 
 function endAuction() {
     console.log(`Ending Auction for Round ${gameState.currentRound + 1}`);
-    // distruibute cards
+    rounds[gameState.currentRound]!.forEach((id) => {
+        const lot = gameState.lots[id]!
+        let highestBid: Bid[] = [];
+        let secondHighestBid: number = 0;
+        lot.bids.forEach((bid) => {
+            if (highestBid.length === 0) {
+                highestBid = [bid];            
+            } else if (bid.amount > highestBid[0]!.amount) {
+                secondHighestBid = highestBid[0]!.amount;
+                highestBid = [bid];
+            } else if (highestBid.length > 0 && bid.amount === highestBid[0]!.amount) {
+                secondHighestBid = highestBid[0]!.amount;
+                highestBid.push(bid);
+            } else if (secondHighestBid < bid.amount) {
+                secondHighestBid = bid.amount;
+            }
+        });
+        console.log(`Lot ${id} highest bids: ${highestBid.map(b => `${b.player.id}(${b.amount})`).join(", ")}`);
+        const winner = highestBid[Math.floor(Math.random() * highestBid.length)]!;
+        console.log(`Lot ${id} won by ${winner.player.id} for ${secondHighestBid}`);
+        winner.player.money -= secondHighestBid;
+        winner.player.ownedCards.push(...lot.cards);
+    });
     gameState.currentRound += 1;
     if (gameState.currentRound >= rounds.length) {
         startGuessing();
@@ -152,6 +173,6 @@ function generateLots() {
     }
     deck.sort(() => Math.random() - 0.5);
     for (let i = 0; i < 13; i++) {
-        gameState.lots[i] = { id: i + 1, cards:[deck[i * 4]!, deck[i * 4 + 1]!, deck[i * 4 + 2]!, deck[i * 4 + 3]!], bids: [] };
+        gameState.lots[i] = { id: i, cards:[deck[i * 4]!, deck[i * 4 + 1]!, deck[i * 4 + 2]!, deck[i * 4 + 3]!], bids: [] };
     }
 }

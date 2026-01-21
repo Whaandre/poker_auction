@@ -32,10 +32,11 @@ wss.on("connection", async (ws) => {
   });
 
   ws.on("message", (data) => {
-    // // testing only
-    // const parsed = JSON.parse(JSON.parse(data.toString()).message);
+    // testing only
+    // {"type":"bid","bids":[[0, 0], [1,100],[2,150]]}
+    const parsed = JSON.parse(JSON.parse(data.toString()).message);
 
-    const parsed = JSON.parse(data.toString());
+    // const parsed = JSON.parse(data.toString());
     console.log(`Parsed message: ${JSON.stringify(parsed)}`);
     if (player.waitingFor === "bid" && parsed.type === "bid") {
       const bidMessage = parsed as BidMessage;

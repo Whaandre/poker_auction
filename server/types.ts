@@ -47,5 +47,4 @@ export interface GameState {
   players: Player[];
   lots: Lot[];
   currentRound: number;
-  bids: Bid[];
 }
