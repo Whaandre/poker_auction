@@ -1,3 +1,4 @@
+import { start } from "repl";
 import { Player, Card, Lot, Bid, Guess, GameState } from "./types"
 import { WebSocket } from "ws";
 
@@ -10,6 +11,7 @@ const gameState: GameState = {
 const rounds: number[][] = [[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12], [13]];
 
 function startGame() {
+    console.log("Starting Game...");
     generateLots();
 
     gameState.lots.forEach((lot) => {
@@ -29,9 +31,10 @@ function startGame() {
 }
 
 function startAuction() {
+    console.log(`Starting Auction for Round ${gameState.currentRound + 1}`);
     gameState.players.forEach((p) => {
         if (p.ws.readyState === WebSocket.OPEN) {
-            p.ws.send(`Enter Your Bid for Lots${rounds[gameState.currentRound]!.join(", ")}: `);
+            p.ws.send(JSON.stringify({ type: "startAuction", lots: rounds[gameState.currentRound] }));
         }
         p.waitingFor = "bid";
     });
@@ -49,15 +52,17 @@ function endAuction() {
 }
 
 function startGuessing() {
+    console.log("Starting Guessing Phase");
     gameState.players.forEach((p) => {
         if (p.ws.readyState === WebSocket.OPEN) {
-            p.ws.send(`Enter Your Guess for Other Players' Hidden Cards: `);
+            p.ws.send(`Enter Your Guess for Other Player's Hidden Card: `);
         }
         p.waitingFor = "guess";
     });
 }
 
 function endGame(){
+    console.log("Calulating Scores...");
     // Reveal guesses and calculate scores
 }
 
@@ -108,10 +113,14 @@ export function addPlayer(ws: WebSocket, name: string): Player {
         }
     });
 
+    if (gameState.players.length >= 2)
+        startGame();
+
     return player;
 }
 
 export function removePlayer(player: Player) {
+    console.log(`${player.id} disconnected`);
     const idx = gameState.players.indexOf(player);
     if (idx !== -1) gameState.players.splice(idx, 1);
     // Broadcast
@@ -134,6 +143,7 @@ function randomCard(): Card {
 }
 
 function generateLots() {
+    console.log("Generating Lots...");
     const deck: Card[] = [];
     for (const suit of ["H", "D", "C", "S"] as ("H" | "D" | "C" | "S")[]) {
         for (let rank = 2; rank <= 14; rank++) {

@@ -6,8 +6,19 @@ export interface Card {
 }
 
 export interface Guess {
-  targetPlayer: Player;
+  targetPlayerId: string;
   card: Card;
+}
+
+export interface BidMessage {
+  type: "bid";
+  bids: number[][];
+}
+
+export interface GuessMessage {
+  type: "guess";
+  targetPlayerId: string;
+  card: string;
 }
 
 export interface Player {
