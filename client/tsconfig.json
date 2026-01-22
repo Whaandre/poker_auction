@@ -1,12 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "esnext",
-    "strict": true,
-    "esModuleInterop": true,
+    "target": "ESNext",                   // modern JS output
+    "module": "ESNext",                   // module system (ESM)
+    "lib": ["DOM", "ESNext"],             // include DOM types
+    "jsx": "react-jsx",                   // React 17+ JSX transform
+    "strict": true,                       // enable all strict checks
+    "esModuleInterop": true,              // for imports like `import fs from 'fs'`
     "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
-    "outDir": "./dist"
+    "moduleResolution": "Node",
+    "isolatedModules": true,              // required by Vite
+    "noEmit": true                        // don’t output compiled files (Vite handles this)
   },
-  "include": ["./main.ts"]
+  "include": ["src"],                     // include all TS/TSX files in src
+  "exclude": ["node_modules", "dist"]     // ignore node_modules and build output
 }

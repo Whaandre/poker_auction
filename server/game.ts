@@ -1,5 +1,19 @@
-import { start } from "repl";
-import { Player, Card, Lot, Bid, Guess, GameState } from "./types"
+// import { start } from "repl";
+import { 
+    Player, 
+    Card, 
+    Lot, 
+    Bid, 
+    Guess, 
+    GameState, 
+    GameStartMessage,
+    StartAuctionMessage,
+    AuctionResultMessage,
+    StartGuessingMessage,
+    GameOverMessage,
+    AuctionResult, 
+    PlayerJoinedMessage,
+    PlayerLeftMessage} from "./types"
 import { WebSocket } from "ws";
 
 const gameState: GameState = {
@@ -18,11 +32,15 @@ function startGame() {
     });
 
     gameState.players.forEach((p) => {
-        p.ownedCards = [];
+        p.earnedCards = [];
         p.hiddenCard = randomCard();
-        p.ownedCards.push(p.hiddenCard);
         if (p.ws.readyState === WebSocket.OPEN) {
-            p.ws.send(`GameStart!\nYour Hidden Card is ${displayCard(p.hiddenCard)}.\n Your Cards: ${p.ownedCards.map(displayCard).join(", ") }`);
+            const msg: GameStartMessage = {
+                type: "gameStart",
+                hiddenCard: p.hiddenCard!,
+                initialMoney: p.money
+            };
+            p.ws.send(JSON.stringify(msg));
         }
     });
 
@@ -33,7 +51,13 @@ function startAuction() {
     console.log(`Starting Auction for Round ${gameState.currentRound + 1}`);
     gameState.players.forEach((p) => {
         if (p.ws.readyState === WebSocket.OPEN) {
-            p.ws.send(JSON.stringify({ type: "startAuction", lots: rounds[gameState.currentRound], money: p.money }));
+            const msg: StartAuctionMessage = {
+                type: "startAuction",
+                round: gameState.currentRound + 1,
+                lotIds: rounds[gameState.currentRound]!,
+                money: p.money
+            };
+            p.ws.send(JSON.stringify(msg));
         }
         p.waitingFor = "bid";
     });
@@ -41,6 +65,7 @@ function startAuction() {
 
 function endAuction() {
     console.log(`Ending Auction for Round ${gameState.currentRound + 1}`);
+    const auctionResults: AuctionResult[] = [];
     rounds[gameState.currentRound]!.forEach((id) => {
         const lot = gameState.lots[id]!
         let highestBid: Bid[] = [];
@@ -62,7 +87,23 @@ function endAuction() {
         const winner = highestBid[Math.floor(Math.random() * highestBid.length)]!;
         console.log(`Lot ${id} won by ${winner.player.id} for ${secondHighestBid}`);
         winner.player.money -= secondHighestBid;
-        winner.player.ownedCards.push(...lot.cards);
+        winner.player.earnedCards.push(...lot.cards);
+        const result: AuctionResult = {
+            lotId: id,
+            winnerId: winner.player.id,
+            pricePaid: secondHighestBid,
+            cards: lot.cards
+        };
+        auctionResults.push(result);
+    });
+    const msg: AuctionResultMessage = {
+        type: "auctionResult",
+        results: auctionResults
+    };
+    gameState.players.forEach((p) => {
+        if (p.ws.readyState === WebSocket.OPEN) {
+            p.ws.send(JSON.stringify(msg));
+        }
     });
     gameState.currentRound += 1;
     if (gameState.currentRound >= rounds.length) {
@@ -74,9 +115,13 @@ function endAuction() {
 
 function startGuessing() {
     console.log("Starting Guessing Phase");
+    const msg: StartGuessingMessage = {
+        type: "startGuessing",
+        cardsPerPlayer: gameState.players.map(p => [p.id, p.earnedCards.map(c => displayCard(c))])
+    };
     gameState.players.forEach((p) => {
         if (p.ws.readyState === WebSocket.OPEN) {
-            p.ws.send(`Enter Your Guess for Other Player's Hidden Card: `);
+            p.ws.send(JSON.stringify(msg));
         }
         p.waitingFor = "guess";
     });
@@ -85,6 +130,15 @@ function startGuessing() {
 function endGame(){
     console.log("Calulating Scores...");
     // Reveal guesses and calculate scores
+    const msg: GameOverMessage = {
+        type: "gameOver",
+        scores: []
+    };
+    gameState.players.forEach((p) => {
+        if (p.ws.readyState === WebSocket.OPEN) {
+            p.ws.send(JSON.stringify(msg));
+        }
+    });
 }
 
 export function receiveBid(player: Player, bid: Bid[]) {
@@ -119,7 +173,7 @@ export function addPlayer(ws: WebSocket, name: string): Player {
         id: name,
         money: 1000,
         hiddenCard: null,
-        ownedCards: [],
+        earnedCards: [],
         guess: null,
         waitingFor: null
     }
@@ -130,12 +184,17 @@ export function addPlayer(ws: WebSocket, name: string): Player {
     // Broadcast
     gameState.players.forEach((p) => {
         if (p.ws.readyState === WebSocket.OPEN) {
-        p.ws.send(JSON.stringify({ type: "playerJoined", playerId: player.id, totalPlayers: gameState.players.length }));
+            const msg: PlayerJoinedMessage = {
+                type: "playerJoined",
+                playerId: player.id,
+                totalPlayers: gameState.players.length
+            };
+            p.ws.send(JSON.stringify(msg));
         }
     });
 
-    if (gameState.players.length >= 2)
-        startGame();
+    // if (gameState.players.length >= 2)
+    //     startGame();
 
     return player;
 }
@@ -147,7 +206,12 @@ export function removePlayer(player: Player) {
     // Broadcast
     gameState.players.forEach((p) => {
         if (p.ws.readyState === WebSocket.OPEN) {
-        p.ws.send(JSON.stringify({ type: "playerLeft", playerId: player.id, totalPlayers: gameState.players.length }));
+            const msg: PlayerLeftMessage = {
+                type: "playerLeft",
+                playerId: player.id,
+                totalPlayers: gameState.players.length
+            };
+            p.ws.send(JSON.stringify(msg));
         }
     });
 }
@@ -173,6 +237,11 @@ function generateLots() {
     }
     deck.sort(() => Math.random() - 0.5);
     for (let i = 0; i < 13; i++) {
-        gameState.lots[i] = { id: i, cards:[deck[i * 4]!, deck[i * 4 + 1]!, deck[i * 4 + 2]!, deck[i * 4 + 3]!], bids: [] };
+        const lot: Lot = {
+            id: i,
+            cards: [deck[i * 4]!, deck[i * 4 + 1]!, deck[i * 4 + 2]!, deck[i * 4 + 3]!],
+            bids: []
+        };
+        gameState.lots[i] = lot;
     }
 }

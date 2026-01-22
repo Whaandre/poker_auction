@@ -2,21 +2,44 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Card Auction Game Client</title>
+  <title>Card Auction Game</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
-    #messages { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: scroll; }
-    #input { margin-top: 10px; }
+    #messages { border: 1px solid #ccc; padding: 10px; height: 200px; overflow-y: auto; margin-bottom: 20px; }
+    .lot { margin-bottom: 10px; }
+    input[type="number"] { width: 60px; }
+    button { margin-left: 5px; }
   </style>
 </head>
 <body>
-  <h1>Card Auction Game Client</h1>
+
+  <h1>Card Auction Game</h1>
+
   <div id="messages"></div>
-  <div id="input">
-    <input type="text" id="msgInput" placeholder="Type a message">
-    <button id="sendBtn">Send</button>
+
+  <h2>Bids</h2>
+  <div id="bidsContainer">
+    <!-- Example lot inputs (will generate dynamically if you want) -->
+    <div class="lot">
+      Lot 0: <input type="number" class="bidInput" data-lotid="0" placeholder="Bid $">
+    </div>
+    <div class="lot">
+      Lot 1: <input type="number" class="bidInput" data-lotid="1" placeholder="Bid $">
+    </div>
+    <div class="lot">
+      Lot 2: <input type="number" class="bidInput" data-lotid="2" placeholder="Bid $">
+    </div>
+    <button id="bidBtn">Submit Bids</button>
   </div>
 
-  <script type="module" src="./dist/main.js"></script>
+  <h2>Guess</h2>
+  <div id="guessContainer">
+    Target Player: <input type="text" id="guessTarget" placeholder="Player ID">
+    Card: <input type="text" id="guessCard" placeholder="H14">
+    <button id="guessBtn">Submit Guess</button>
+  </div>
+
+  <script type="module" src="./src/wsClient.ts"></script>
+
 </body>
 </html>
