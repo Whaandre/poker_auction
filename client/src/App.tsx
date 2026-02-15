@@ -10,7 +10,9 @@ type Message =
   | { type: "playerJoined"; playerId: string; totalPlayers: number }
   | { type: "playerLeft"; playerId: string; totalPlayers: number }
   | { type: "auctionResult"; winnerId: string; lotId: number; price: number }
-  | { type: "guessPhase" };
+  | { type: "guessPhase" }
+  | { type: "bidAccepted" }
+  | { type: "bidRejected"; message: string };
 
 export const ws = new WebSocket("ws://localhost:8080");
 

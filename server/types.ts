@@ -7,7 +7,9 @@ export type ServerMessage =
   | StartAuctionMessage
   | AuctionResultMessage
   | StartGuessingMessage
-  | GameOverMessage;
+  | GameOverMessage
+  | BidAcceptedMessage
+  | BidRejectedMessage;
 
 export type ClientMessage =
   | BidMessage
@@ -68,6 +70,15 @@ export interface GuessMessage extends BaseMessage {
   type: "guess";
   targetPlayerId: string;
   card: string;
+}
+
+export interface BidAcceptedMessage extends BaseMessage {
+  type: "bidAccepted";
+}
+
+export interface BidRejectedMessage extends BaseMessage {
+  type: "bidRejected";
+  message: string;
 }
 
 export interface FinalScore {

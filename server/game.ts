@@ -141,15 +141,49 @@ function endGame(){
     });
 }
 
-export function receiveBid(player: Player, bid: Bid[]) {
-    console.log(`Received bid from ${player.id}: ${bid.join(", ")}`);
-    if (player.waitingFor == "bid") {
-        player.waitingFor = null;
-        bid.forEach((b) => {
-            gameState.lots[b.lotId]?.bids.push(b);
-        });
+export function receiveBid(player: Player, bids: Bid[]) {
+    if (player.waitingFor !== "bid") return;
+
+    // ---- VALIDATION ----
+    let totalBid = 0;
+
+    for (const b of bids) {
+        if (b.amount < 0){
+            player.ws.send(JSON.stringify({
+                type: "bidRejected",
+                message: "You cannot bid negative amount."
+            }));
+            return;
+        }
+        totalBid += b.amount;
     }
-    const biddingDone = gameState.players.every((p) => p.waitingFor === null);
+
+    if (totalBid > player.money) {
+        console.log(`❌ ${player.id} overbid: ${totalBid} > ${player.money}`);
+
+        player.ws.send(JSON.stringify({
+            type: "bidRejected",
+            message: "You cannot bid more than your available money."
+        }));
+        return;
+    }
+
+    // ---- ACCEPT BIDS ----
+    player.waitingFor = null;
+
+    for (const b of bids) {
+        gameState.lots[b.lotId]?.bids.push(b);
+    }
+
+    // Send confirmation
+    if (player.ws.readyState === WebSocket.OPEN) {
+        player.ws.send(JSON.stringify({
+            type: "bidAccepted"
+        }));
+    }
+
+    // ---- CHECK ROUND COMPLETION ----
+    const biddingDone = gameState.players.every(p => p.waitingFor === null);
     if (biddingDone) {
         endAuction();
     }
@@ -193,8 +227,8 @@ export function addPlayer(ws: WebSocket, name: string): Player {
         }
     });
 
-    // if (gameState.players.length >= 2)
-    //     startGame();
+    if (gameState.players.length >= 2)
+        startGame();
 
     return player;
 }
