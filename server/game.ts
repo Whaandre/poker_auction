@@ -38,7 +38,9 @@ function startGame() {
             const msg: GameStartMessage = {
                 type: "gameStart",
                 hiddenCard: p.hiddenCard!,
-                initialMoney: p.money
+                initialMoney: p.money,
+                players: gameState.players,
+                lots: gameState.lots
             };
             p.ws.send(JSON.stringify(msg));
         }
@@ -98,7 +100,8 @@ function endAuction() {
     });
     const msg: AuctionResultMessage = {
         type: "auctionResult",
-        results: auctionResults
+        results: auctionResults,
+        players: gameState.players
     };
     gameState.players.forEach((p) => {
         if (p.ws.readyState === WebSocket.OPEN) {

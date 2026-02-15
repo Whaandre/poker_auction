@@ -35,6 +35,8 @@ export interface GameStartMessage extends BaseMessage {
   type: "gameStart";
   hiddenCard: Card;
   initialMoney: number;
+  players: Player[];
+  lots: Lot[];
 }
 
 export interface StartAuctionMessage extends BaseMessage {
@@ -59,6 +61,7 @@ export interface AuctionResult {
 export interface AuctionResultMessage extends BaseMessage {
   type: "auctionResult";
   results: AuctionResult[];
+  players: Player[];
 }
 
 export interface StartGuessingMessage extends BaseMessage {

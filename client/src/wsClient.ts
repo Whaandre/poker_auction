@@ -4,6 +4,8 @@ import type {
   GuessMessage,
   StartAuctionMessage,
   StartGuessingMessage,
+  Lot,
+  Player,
 } from "../../server/types";
 
 const name = prompt("Enter your name")!;
@@ -55,8 +57,9 @@ function handleServerMessage(msg: ServerMessage) {
 
     case "gameStart":
       log(`Game started! Hidden card: ${msg.hiddenCard.suit}${msg.hiddenCard.rank}`);
+      renderLots(msg.lots);
       break;
-
+      
     case "startAuction":
       renderAuction(msg);
       break;
@@ -65,7 +68,7 @@ function handleServerMessage(msg: ServerMessage) {
       msg.results.forEach(r =>
         log(`Lot ${r.lotId} won by ${r.winnerId} for $${r.pricePaid}`)
       );
-      auctionBox.style.display = "none";
+      renderPlayers(msg.players);
       break;
 
     case "startGuessing":
@@ -88,6 +91,74 @@ function handleServerMessage(msg: ServerMessage) {
       log(msg.message)
       break;
   }
+}
+
+// ---------------- Card Rendering Helpers ----------------
+function formatRank(rank: number) {
+  if (rank === 1) return "A";
+  if (rank === 11) return "J";
+  if (rank === 12) return "Q";
+  if (rank === 13) return "K";
+  return String(rank);
+}
+
+function formatSuit(suit: string) {
+  switch (suit) {
+    case "H": return { symbol: "♥", color: "red" };
+    case "D": return { symbol: "♦", color: "red" };
+    case "S": return { symbol: "♠", color: "black" };
+    case "C": return { symbol: "♣", color: "black" };
+    default: return { symbol: "?", color: "black" };
+  }
+}
+
+function createCardElement(card: { suit: string; rank: number }) {
+  const { symbol, color } = formatSuit(card.suit);
+  const rank = formatRank(card.rank);
+
+  const div = document.createElement("div");
+  div.className = "card";
+  div.style.color = color;
+  div.innerHTML = `
+    <div class="card-rank">${rank}</div>
+    <div class="card-suit">${symbol}</div>
+  `;
+  return div;
+}
+
+function renderCards(cards: { suit: string; rank: number }[]) {
+  const container = document.createElement("div");
+  container.className = "cards";
+  cards.forEach(c => container.appendChild(createCardElement(c)));
+  return container;
+}
+
+function renderLots(lots: Lot[]) {
+  const lotsDiv = document.getElementById("lots")!;
+  lotsDiv.innerHTML = "";
+  lots.forEach(lot => {
+    const div = document.createElement("div");
+    div.className = "lot";
+    const title = document.createElement("h4");
+    title.textContent = `Lot ${lot.id}`;
+    div.appendChild(title);
+    div.appendChild(renderCards(lot.cards));
+    lotsDiv.appendChild(div);
+  });
+}
+
+function renderPlayers(players: Player[]) {
+  const playersDiv = document.getElementById("players")!;
+  playersDiv.innerHTML = "";
+  players.forEach(player => {
+    const div = document.createElement("div");
+    div.className = "player";
+    const header = document.createElement("div");
+    header.innerHTML = `<strong>${player.id}</strong> — $${player.money}`;
+    div.appendChild(header);
+    div.appendChild(renderCards(player.earnedCards));
+    playersDiv.appendChild(div);
+  });
 }
 
 // ---- Auction UI ----

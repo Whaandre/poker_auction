@@ -1,0 +1,9 @@
+.cards { display: flex; gap: 6px; flex-wrap: wrap; }
+.card {
+  width: 36px; height: 48px; border: 1px solid black; border-radius: 4px;
+  background: white; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-weight: bold; text-align: center;
+}
+.card-rank { font-size: 14px; }
+.card-suit { font-size: 16px; }
+.lot, .player { margin-bottom: 12px; }
