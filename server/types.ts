@@ -85,9 +85,21 @@ export type StartGuessingMessage = {
   cardsPerPlayer: [string, string[]][];
 };
 
+export type ScoreDetail = {
+  playerId: string;
+  rank: number;           // 1st, 2nd...
+  handRankName: string;   // "Full House", "Royal Flush"
+  bestHand: Card[];       // The 5 cards
+  hiddenCard: Card;       // The user's hidden card
+  prizeScore: number;
+  guessScore: number;
+  moneyScore: number;
+  totalScore: number;
+};
+
 export type GameOverMessage = {
   type: "gameOver";
-  scores: { playerId: string; total: number }[];
+  scores: ScoreDetail[];
 };
 
 export type BidAcceptedMessage = {

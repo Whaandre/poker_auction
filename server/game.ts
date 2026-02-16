@@ -1,4 +1,3 @@
-// import { start } from "repl";
 import { 
     Player, 
     Card, 
@@ -11,11 +10,12 @@ import {
     AuctionResultMessage,
     StartGuessingMessage,
     GameOverMessage,
+    ScoreDetail,
     AuctionResult, 
     PlayerJoinedMessage,
     PlayerLeftMessage,
-    JoinRejectedMessage
-} from "./types"
+    JoinRejectedMessage 
+} from "./types";
 import { WebSocket } from "ws";
 import { findBestHand } from "./poker";
 
@@ -29,14 +29,14 @@ const rounds: number[][] = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [9, 10, 11], [12]];
 function startGame() {
     console.log("Starting Game...");
     generateLots();
-
-    gameState.lots.forEach((lot) => {
-        console.log(`Lot ${lot.id}: ${lot.cards.map(displayCard).join(", ")}`);
-    });
+    gameState.currentRound = 0;
 
     gameState.players.forEach((p) => {
         p.earnedCards = [];
         p.hiddenCard = randomCard();
+        p.guess = null;
+        p.money = 1000;
+        
         if (p.ws.readyState === WebSocket.OPEN) {
             const msg: GameStartMessage = {
                 type: "gameStart",
@@ -71,10 +71,12 @@ function startAuction() {
 function endAuction() {
     console.log(`Ending Auction for Round ${gameState.currentRound + 1}`);
     const auctionResults: AuctionResult[] = [];
+    
     rounds[gameState.currentRound]!.forEach((id) => {
-        const lot = gameState.lots[id]!
+        const lot = gameState.lots[id]!;
         let highestBid: Bid[] = [];
         let secondHighestBid: number = 0;
+
         lot.bids.forEach((bid) => {
             if (highestBid.length === 0) {
                 highestBid = [bid];            
@@ -88,19 +90,23 @@ function endAuction() {
                 secondHighestBid = bid.amount;
             }
         });
-        console.log(`Lot ${id} highest bids: ${highestBid.map(b => `${b.player.id}(${b.amount})`).join(", ")}`);
-        const winner = highestBid[Math.floor(Math.random() * highestBid.length)]!;
-        console.log(`Lot ${id} won by ${winner.player.id} for ${secondHighestBid}`);
-        winner.player.money -= secondHighestBid;
-        winner.player.earnedCards.push(...lot.cards);
-        const result: AuctionResult = {
-            lotId: id,
-            winnerId: winner.player.id,
-            pricePaid: secondHighestBid,
-            cards: lot.cards
-        };
-        auctionResults.push(result);
+
+        if (highestBid.length > 0) {
+            const winner = highestBid[Math.floor(Math.random() * highestBid.length)]!;
+            console.log(`Lot ${id} won by ${winner.player.id} for ${secondHighestBid}`);
+            winner.player.money -= secondHighestBid;
+            winner.player.earnedCards.push(...lot.cards);
+
+            const result: AuctionResult = {
+                lotId: id,
+                winnerId: winner.player.id,
+                pricePaid: secondHighestBid,
+                cards: lot.cards
+            };
+            auctionResults.push(result);
+        }
     });
+
     const msg: AuctionResultMessage = {
         type: "auctionResult",
         results: auctionResults,
@@ -111,6 +117,7 @@ function endAuction() {
             p.ws.send(JSON.stringify(msg));
         }
     });
+
     gameState.currentRound += 1;
     if (gameState.currentRound >= rounds.length) {
         startGuessing();
@@ -133,32 +140,123 @@ function startGuessing() {
     });
 }
 
-function endGame(){
-    console.log("Calulating Scores...");
+// ---------------- SCORING ----------------
 
-    let bestHands = gameState.players.map(p => {
-        const best = findBestHand([...p.earnedCards, p.hiddenCard!]);
-        return {
-            playerId: p.id,
-            handRank: best[0],
-            handCards: best[1]
+function getHandName(rankIndex: number): string {
+    const names: Record<number, string> = {
+        10: "Royal Flush",
+        9: "Straight Flush",
+        8: "Four of a Kind",
+        7: "Full House",
+        6: "Flush",
+        5: "Straight",
+        4: "Three of a Kind",
+        3: "Two Pair",
+        2: "One Pair",
+        1: "High Card"
+    };
+    return names[rankIndex] || "Unknown";
+}
+
+// Compare sorting arrays: [rank, high1, high2...]
+// Returns positive if A > B, negative if B > A
+function compareHands(a: number[], b: number[]): number {
+    for (let i = 0; i < a.length; i++) {
+        if (a[i]! > b[i]!) return 1;
+        if (a[i]! < b[i]!) return -1;
+    }
+    return 0;
+}
+
+function endGame() {
+    console.log("Calculating Scores...");
+    const n = gameState.players.length;
+
+    // 1. Evaluate Poker Hands
+    const playerEvals = gameState.players.map(p => {
+        const allCards = [...p.earnedCards];
+        if (p.hiddenCard) allCards.push(p.hiddenCard);
+        
+        try {
+            const [scoreArray, bestHand] = findBestHand(allCards);
+            return { player: p, scoreArray, bestHand, valid: true };
+        } catch (e) {
+            // Handle case where player has < 5 cards (unlikely but possible)
+            return { 
+                player: p, 
+                scoreArray: [0,0,0,0,0,0], 
+                bestHand: allCards, 
+                valid: false 
+            };
         }
     });
 
-    bestHands.sort((a, b) => {
-      for (let i = 0; i < 6; i++) {
-        if (b.handRank[i] !== a.handRank[i]) return b.handRank[i]! - a.handRank[i]!;
-      }
-      return 0;
+    // 2. Sort by Poker Strength (Descending)
+    playerEvals.sort((a, b) => compareHands(b.scoreArray, a.scoreArray));
+
+    // 3. Assign Prize Score
+    const scoreMap = new Map<string, ScoreDetail>();
+
+    playerEvals.forEach((entry, index) => {
+        const k = index + 1; // Rank (1st, 2nd...)
+        
+        // Formula: (n - k)(n - k + 1) / 2 * 100
+        const prizeScore = ((n - k) * (n - k + 1) / 2) * 100;
+
+        const detail: ScoreDetail = {
+            playerId: entry.player.id,
+            rank: k,
+            handRankName: entry.valid ? getHandName(entry.scoreArray[0]!) : "Insufficient Cards",
+            bestHand: entry.bestHand,
+            hiddenCard: entry.player.hiddenCard!,
+            prizeScore: prizeScore,
+            guessScore: 0,
+            moneyScore: entry.player.money,
+            totalScore: 0 // calculated after guesses
+        };
+        scoreMap.set(entry.player.id, detail);
     });
 
-    
+    // 4. Calculate Guess Scores
+    gameState.players.forEach(guesser => {
+        if (!guesser.guess) return;
+        
+        const targetId = guesser.guess.targetPlayerId;
+        const targetPlayer = gameState.players.find(p => p.id === targetId);
 
-    // Reveal guesses and calculate scores
+        if (targetPlayer && targetPlayer.hiddenCard) {
+            // Expected format e.g., "H14"
+            const actualCardStr = targetPlayer.hiddenCard.suit + targetPlayer.hiddenCard.rank;
+            
+            if (guesser.guess.card === actualCardStr) {
+                const targetScore = scoreMap.get(targetId);
+                const guesserScore = scoreMap.get(guesser.id);
+                
+                if (targetScore && guesserScore) {
+                    // Gain half of the target's prize score
+                    const bonus = targetScore.prizeScore / 2;
+                    guesserScore.guessScore += bonus;
+                    console.log(`${guesser.id} guessed ${targetId} correctly! (+${bonus})`);
+                }
+            }
+        }
+    });
+
+    // 5. Final Totals & Sort for Display
+    const finalScores: ScoreDetail[] = [];
+    scoreMap.forEach(score => {
+        score.totalScore = score.prizeScore + score.guessScore + score.moneyScore;
+        finalScores.push(score);
+    });
+
+    // Sort by Total Score (Highest first)
+    finalScores.sort((a, b) => b.totalScore - a.totalScore);
+
     const msg: GameOverMessage = {
         type: "gameOver",
-        scores: []
+        scores: finalScores
     };
+
     gameState.players.forEach((p) => {
         if (p.ws.readyState === WebSocket.OPEN) {
             p.ws.send(JSON.stringify(msg));
@@ -166,132 +264,77 @@ function endGame(){
     });
 }
 
+// ---------------- HELPERS & EXPORTS ----------------
+
 export function receiveBid(player: Player, bids: Bid[]) {
     if (player.waitingFor !== "bid") return;
-
-    // ---- VALIDATION ----
     let totalBid = 0;
-
     for (const b of bids) {
-        if (b.amount < 0){
-            player.ws.send(JSON.stringify({
-                type: "bidRejected",
-                message: "You cannot bid negative amount."
-            }));
-            return;
+        if (b.amount < 0) {
+             player.ws.send(JSON.stringify({ type: "bidRejected", message: "Negative bid." }));
+             return;
         }
         totalBid += b.amount;
     }
-
     if (totalBid > player.money) {
-        console.log(`❌ ${player.id} overbid: ${totalBid} > ${player.money}`);
-
-        player.ws.send(JSON.stringify({
-            type: "bidRejected",
-            message: "You cannot bid more than your available money."
-        }));
+        player.ws.send(JSON.stringify({ type: "bidRejected", message: "Overbid." }));
         return;
     }
-
-    // ---- ACCEPT BIDS ----
     player.waitingFor = null;
-
     for (const b of bids) {
         gameState.lots[b.lotId]?.bids.push(b);
     }
-
-    // Send confirmation
     if (player.ws.readyState === WebSocket.OPEN) {
-        player.ws.send(JSON.stringify({
-            type: "bidAccepted"
-        }));
+        player.ws.send(JSON.stringify({ type: "bidAccepted" }));
     }
-
-    // ---- CHECK ROUND COMPLETION ----
     const biddingDone = gameState.players.every(p => p.waitingFor === null);
-    if (biddingDone) {
-        endAuction();
-    }
+    if (biddingDone) endAuction();
 }
 
 export function receiveGuess(player: Player, guess: Guess) {
-    console.log(`Received guess from ${player.id}: ${guess}`);
     if (player.waitingFor == "guess") {
         player.waitingFor = null;
         player.guess = guess;
     }
     const guessingDone = gameState.players.every((p) => p.waitingFor === null);
-    if (guessingDone) {
-        endGame();
-    }
+    if (guessingDone) endGame();
 }
 
 export function addPlayer(ws: WebSocket, name: string): Player | null {
-    // 1. Check for Empty Name
     if (!name || name.trim() === "") {
-        const msg: JoinRejectedMessage = {
-            type: "joinRejected",
-            message: "Name cannot be empty."
-        };
-        ws.send(JSON.stringify(msg));
+        ws.send(JSON.stringify({ type: "joinRejected", message: "Empty name" }));
         return null;
     }
-
-    // 2. Check for Duplicate Name
-    const isDuplicate = gameState.players.some(p => p.id === name);
-    if (isDuplicate) {
-        const msg: JoinRejectedMessage = {
-            type: "joinRejected",
-            message: `The name "${name}" is already taken. Please choose another.`
-        };
-        ws.send(JSON.stringify(msg));
+    if (gameState.players.some(p => p.id === name)) {
+        ws.send(JSON.stringify({ type: "joinRejected", message: "Name taken" }));
         return null;
     }
 
     const player: Player = {
-        ws: ws,
-        id: name,
-        money: 1000,
-        hiddenCard: null,
-        earnedCards: [],
-        guess: null,
-        waitingFor: null
-    }
+        ws, id: name, money: 1000, hiddenCard: null, earnedCards: [], guess: null, waitingFor: null
+    };
     gameState.players.push(player);
-
-    console.log(`${player.id} connected`);
-
-    // Broadcast
-    gameState.players.forEach((p) => {
+    
+    gameState.players.forEach(p => {
         if (p.ws.readyState === WebSocket.OPEN) {
-            const msg: PlayerJoinedMessage = {
-                type: "playerJoined",
-                playerId: player.id,
-                totalPlayers: gameState.players.length
-            };
-            p.ws.send(JSON.stringify(msg));
+            p.ws.send(JSON.stringify({ 
+                type: "playerJoined", playerId: player.id, totalPlayers: gameState.players.length 
+            }));
         }
     });
 
-    if (gameState.players.length >= 8)
-        startGame();
-
+    if (gameState.players.length >= 8) startGame();
     return player;
 }
 
 export function removePlayer(player: Player) {
-    console.log(`${player.id} disconnected`);
     const idx = gameState.players.indexOf(player);
     if (idx !== -1) gameState.players.splice(idx, 1);
-    // Broadcast
-    gameState.players.forEach((p) => {
+    gameState.players.forEach(p => {
         if (p.ws.readyState === WebSocket.OPEN) {
-            const msg: PlayerLeftMessage = {
-                type: "playerLeft",
-                playerId: player.id,
-                totalPlayers: gameState.players.length
-            };
-            p.ws.send(JSON.stringify(msg));
+            p.ws.send(JSON.stringify({ 
+                type: "playerLeft", playerId: player.id, totalPlayers: gameState.players.length 
+            }));
         }
     });
 }
@@ -308,7 +351,6 @@ function randomCard(): Card {
 }
 
 function generateLots() {
-    console.log("Generating Lots...");
     const deck: Card[] = [];
     for (const suit of ["H", "D", "C", "S"] as ("H" | "D" | "C" | "S")[]) {
         for (let rank = 2; rank <= 14; rank++) {
@@ -317,11 +359,6 @@ function generateLots() {
     }
     deck.sort(() => Math.random() - 0.5);
     for (let i = 0; i < 13; i++) {
-        const lot: Lot = {
-            id: i,
-            cards: [deck[i * 4]!, deck[i * 4 + 1]!, deck[i * 4 + 2]!, deck[i * 4 + 3]!],
-            bids: []
-        };
-        gameState.lots[i] = lot;
+        gameState.lots[i] = { id: i, cards: deck.slice(i*4, i*4+4), bids: [] };
     }
 }
