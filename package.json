@@ -20,6 +20,7 @@
   "devDependencies": {
     "@types/node": "^25.0.9",
     "@types/ws": "^8.18.1",
+    "@vitejs/plugin-react": "^5.1.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   },

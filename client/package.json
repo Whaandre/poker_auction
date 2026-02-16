@@ -1,14 +1,16 @@
 {
   "name": "client",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "homepage": "https://<YOUR_GITHUB_USERNAME>.github.io/poker_auction", 
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
+  "description": "",
+  "main": "index.js",
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -21,6 +23,7 @@
     "@types/react": "^19.2.9",
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.23",
+    "gh-pages": "^6.3.0",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.9.3",

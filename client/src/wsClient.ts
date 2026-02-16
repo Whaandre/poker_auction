@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import type {
   ServerMessage,
   BidMessage,
@@ -12,7 +13,17 @@ import type {
 } from "../../server/types";
 
 let myName = prompt("Enter your name") || "";
-const socket = new WebSocket("ws://localhost:8080");
+
+const isProduction = import.meta.env.PROD;
+
+// Use your Render/Railway URL for production, localhost for testing
+const wsUrl = isProduction 
+  ? "wss://poker-auction.onrender.com"  // ⚠️ REPLACE THIS with your actual Server URL
+  : "ws://localhost:8080";
+
+const socket = new WebSocket(wsUrl);
+
+// const socket = new WebSocket("ws://localhost:8080");
 
 let knownPlayers: Player[] = [];
 
