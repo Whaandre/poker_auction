@@ -13,8 +13,11 @@ import {
     GameOverMessage,
     AuctionResult, 
     PlayerJoinedMessage,
-    PlayerLeftMessage} from "./types"
+    PlayerLeftMessage,
+    JoinRejectedMessage
+} from "./types"
 import { WebSocket } from "ws";
+import { findBestHand } from "./poker";
 
 const gameState: GameState = {
     players: [],
@@ -132,6 +135,25 @@ function startGuessing() {
 
 function endGame(){
     console.log("Calulating Scores...");
+
+    let bestHands = gameState.players.map(p => {
+        const best = findBestHand([...p.earnedCards, p.hiddenCard!]);
+        return {
+            playerId: p.id,
+            handRank: best[0],
+            handCards: best[1]
+        }
+    });
+
+    bestHands.sort((a, b) => {
+      for (let i = 0; i < 6; i++) {
+        if (b.handRank[i] !== a.handRank[i]) return b.handRank[i]! - a.handRank[i]!;
+      }
+      return 0;
+    });
+
+    
+
     // Reveal guesses and calculate scores
     const msg: GameOverMessage = {
         type: "gameOver",
@@ -204,7 +226,28 @@ export function receiveGuess(player: Player, guess: Guess) {
     }
 }
 
-export function addPlayer(ws: WebSocket, name: string): Player {
+export function addPlayer(ws: WebSocket, name: string): Player | null {
+    // 1. Check for Empty Name
+    if (!name || name.trim() === "") {
+        const msg: JoinRejectedMessage = {
+            type: "joinRejected",
+            message: "Name cannot be empty."
+        };
+        ws.send(JSON.stringify(msg));
+        return null;
+    }
+
+    // 2. Check for Duplicate Name
+    const isDuplicate = gameState.players.some(p => p.id === name);
+    if (isDuplicate) {
+        const msg: JoinRejectedMessage = {
+            type: "joinRejected",
+            message: `The name "${name}" is already taken. Please choose another.`
+        };
+        ws.send(JSON.stringify(msg));
+        return null;
+    }
+
     const player: Player = {
         ws: ws,
         id: name,
@@ -230,7 +273,7 @@ export function addPlayer(ws: WebSocket, name: string): Player {
         }
     });
 
-    if (gameState.players.length >= 2)
+    if (gameState.players.length >= 8)
         startGame();
 
     return player;

@@ -3,31 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <title>Card Auction Game</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="styles.css">
   <style>
     body {
       font-family: system-ui, sans-serif;
       padding: 20px;
       background: #f7f7f7;
     }
-    h2 { margin-top: 30px; }
+    h2 { margin-top: 0; }
+    
+    /* Layout */
+    .game-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr; /* Split 50/50 */
+      gap: 20px;
+      align-items: start;
+    }
+    
     .box {
       background: white;
       padding: 15px;
       border-radius: 8px;
       margin-bottom: 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    button {
-      padding: 6px 12px;
-      margin-top: 10px;
+
+    button { padding: 8px 16px; margin-top: 10px; cursor: pointer; }
+    input, select { padding: 5px; margin: 5px 2px; }
+    
+    /* Status Box Scrolling */
+    #messages {
+      height: 200px;       /* Fixed height */
+      overflow-y: auto;    /* Scroll when content exceeds height */
+      border: 1px solid #eee;
+      padding: 5px;
+      border-radius: 4px;
     }
-    input {
-      margin: 5px 0;
-    }
-    #messages p {
-      margin: 4px 0;
-    }
-    .lot-card {
+    #messages p { margin: 4px 0; font-size: 0.9em; color: #555; }
+
+    /* Cards */
+    .lot-card, .card {
       display: inline-block;
       margin: 2px;
       padding: 5px;
@@ -36,6 +51,17 @@
       width: 30px;
       text-align: center;
       background: #fff;
+      font-weight: bold;
+    }
+    .card.unknown {
+      background: #eee;
+      color: #888;
+      border: 1px dashed #aaa;
+    }
+    .player {
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
     }
   </style>
 </head>
@@ -43,28 +69,68 @@
 
 <h1>🂡 Card Auction Game</h1>
 
-<!-- Status / Logs -->
-<div class="box">
-  <strong>Status</strong>
-  <div id="messages"></div>
-</div>
+<div class="game-layout">
+  
+  <div class="left-panel">
+    
+    <div class="box">
+      <h2>Status</h2>
+      <div id="messages"></div>
+    </div>
 
-<!-- Auction UI -->
-<div class="box" id="auctionBox" style="display:none">
-  <h2>Auction</h2>
-  <div id="money"></div>
-  <div id="lots"></div>        <!-- lots & their cards will appear here -->
-  <div id="players"></div>     <!-- players & their cards -->
-  <button id="bidBtn">Submit Bids</button>
-</div>
+    <div class="box" id="auctionBox" style="display:none">
+      <h2>Auction</h2>
+      <div id="money" style="font-size: 1.1em; margin-bottom: 10px; font-weight: bold;"></div>
+      <div id="lots"></div>
+      <button id="bidBtn">Submit Bids</button>
+    </div>
 
-<!-- Guessing UI -->
-<div class="box" id="guessBox" style="display:none">
-  <h2>Guessing Phase</h2>
-  <div id="guessInfo"></div>
-  <input id="guessTarget" placeholder="Player ID" />
-  <input id="guessCard" placeholder="Card (e.g. H14)" />
-  <button id="guessBtn">Submit Guess</button>
+    <div class="box" id="guessBox" style="display:none">
+      <h2>Guessing Phase</h2>
+      <div id="guessInfo"></div>
+      <div style="margin-top:15px;">
+        <label>Target Player:</label><br>
+        <select id="guessTarget"></select>
+        <br><br>
+        
+        <label>Guess Hidden Card:</label><br>
+        <select id="guessRank">
+          <option value="14">A</option>
+          <option value="13">K</option>
+          <option value="12">Q</option>
+          <option value="11">J</option>
+          <option value="10">10</option>
+          <option value="9">9</option>
+          <option value="8">8</option>
+          <option value="7">7</option>
+          <option value="6">6</option>
+          <option value="5">5</option>
+          <option value="4">4</option>
+          <option value="3">3</option>
+          <option value="2">2</option>
+        </select>
+        
+        <select id="guessSuit">
+          <option value="H">♥ Hearts</option>
+          <option value="D">♦ Diamonds</option>
+          <option value="C">♣ Clubs</option>
+          <option value="S">♠ Spades</option>
+        </select>
+        <br>
+        
+        <button id="guessBtn">Submit Guess</button>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="right-panel">
+    <div class="box">
+      <h2>Players</h2>
+      <div id="players">Waiting for players...</div>
+    </div>
+  </div>
+
 </div>
 
 <script type="module" src="/src/wsClient.ts"></script>

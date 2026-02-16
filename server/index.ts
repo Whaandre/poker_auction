@@ -1,56 +1,64 @@
-import { WebSocketServer } from "ws";
-import { addPlayer, removePlayer, receiveBid, receiveGuess } from "./game";
-import { Bid, Card, BidMessage, GuessMessage, Player } from "./types";
+import { WebSocketServer, WebSocket } from "ws";
+import { 
+  addPlayer, 
+  removePlayer, 
+  receiveBid, 
+  receiveGuess 
+} from "./game";
+import { Bid, Guess, BidMessage, GuessMessage } from "./types";
 
 const wss = new WebSocketServer({ port: 8080 });
-console.log("WebSocket server running on ws://localhost:8080");
 
-function stringToCard(cardStr: string): Card {
-  const suit = cardStr.charAt(0) as "H" | "D" | "C" | "S";
-  const rank = parseInt(cardStr.slice(1));
-  return { suit, rank };
-}
+console.log("Server started on port 8080");
 
-wss.on("connection", (ws) => {
-  let player: Player | null = null;
+wss.on("connection", (ws: WebSocket) => {
+  let player = null as any;
 
-  ws.on("message", (data) => {
-    const parsed = JSON.parse(data.toString());
+  ws.on("message", (message: string) => {
+    try {
+      const msg = JSON.parse(message);
 
-    // First message must be join
-    if (!player && parsed.type === "join") {
-      player = addPlayer(ws, parsed.name);
-      return;
-    }
-    
-    if (!player) return;
-
-    if (player.waitingFor === "bid" && parsed.type === "bid") {
-      const bidMessage = parsed as BidMessage;
-      const bid: Bid[] = bidMessage.bids.map(
-        (item) => {
-          const [lotId, amount] = item as [number, number];
-          return {
-            player: player as Player,
-            lotId,
-            amount
-          };
+      if (msg.type === "join") {
+        // Attempt to add player (validates name)
+        player = addPlayer(ws, msg.name);
+        // If addPlayer returns null, the name was rejected (msg sent inside addPlayer)
+        if (!player) {
+           return;
         }
-      );
+      } else if (player) {
+        switch (msg.type) {
+          case "bid": {
+            const bidMsg = msg as BidMessage;
+            // Map the client's simple bid objects to the server's Bid type (including player)
+            const bids: Bid[] = bidMsg.bids.map((b) => ({
+              player: player,
+              lotId: b.lotId,
+              amount: b.amount,
+            }));
+            receiveBid(player, bids);
+            break;
+          }
 
-      receiveBid(player, bid);
-    }
-
-    if (player.waitingFor === "guess" && parsed.type === "guess") {
-      const guessMessage = parsed as GuessMessage;
-      receiveGuess(player, {
-        targetPlayerId: guessMessage.targetPlayerId,
-        card: stringToCard(guessMessage.card)
-      });
+          case "guess": {
+            const guessMsg = msg as GuessMessage;
+            // Pass the card string directly, do not convert to Card object
+            const guess: Guess = {
+              targetPlayerId: guessMsg.targetPlayerId,
+              card: guessMsg.card,
+            };
+            receiveGuess(player, guess);
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Error handling message:", e);
     }
   });
 
   ws.on("close", () => {
-    if (player) removePlayer(player);
+    if (player) {
+      removePlayer(player);
+    }
   });
 });

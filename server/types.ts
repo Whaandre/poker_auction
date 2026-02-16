@@ -1,5 +1,109 @@
 import { WebSocket } from "ws";
 
+export type Card = {
+  suit: "H" | "D" | "C" | "S";
+  rank: number;
+};
+
+export type Lot = {
+  id: number;
+  cards: Card[];
+  bids: Bid[];
+};
+
+export type Player = {
+  ws: WebSocket;
+  id: string;
+  money: number;
+  hiddenCard: Card | null;
+  earnedCards: Card[];
+  guess: Guess | null;
+  waitingFor: "bid" | "guess" | null;
+};
+
+export type Bid = {
+  player: Player;
+  lotId: number;
+  amount: number;
+};
+
+export type Guess = {
+  targetPlayerId: string;
+  card: string;
+};
+
+export type GameState = {
+  players: Player[];
+  lots: Lot[];
+  currentRound: number;
+};
+
+// ---- Messages ----
+
+export type PlayerJoinedMessage = {
+  type: "playerJoined";
+  playerId: string;
+  totalPlayers: number;
+};
+
+export type PlayerLeftMessage = {
+  type: "playerLeft";
+  playerId: string;
+  totalPlayers: number;
+};
+
+export type GameStartMessage = {
+  type: "gameStart";
+  hiddenCard: Card;
+  initialMoney: number;
+  players: Player[];
+  lots: Lot[];
+};
+
+export type StartAuctionMessage = {
+  type: "startAuction";
+  round: number;
+  lotIds: number[];
+  money: number;
+};
+
+export type AuctionResult = {
+  lotId: number;
+  winnerId: string;
+  pricePaid: number;
+  cards: Card[];
+};
+
+export type AuctionResultMessage = {
+  type: "auctionResult";
+  results: AuctionResult[];
+  players: Player[];
+};
+
+export type StartGuessingMessage = {
+  type: "startGuessing";
+  cardsPerPlayer: [string, string[]][];
+};
+
+export type GameOverMessage = {
+  type: "gameOver";
+  scores: { playerId: string; total: number }[];
+};
+
+export type BidAcceptedMessage = {
+  type: "bidAccepted";
+};
+
+export type BidRejectedMessage = {
+  type: "bidRejected";
+  message: string;
+};
+
+export type JoinRejectedMessage = {
+  type: "joinRejected";
+  message: string;
+};
+
 export type ServerMessage =
   | PlayerJoinedMessage
   | PlayerLeftMessage
@@ -9,129 +113,17 @@ export type ServerMessage =
   | StartGuessingMessage
   | GameOverMessage
   | BidAcceptedMessage
-  | BidRejectedMessage;
+  | BidRejectedMessage
+  | JoinRejectedMessage;
 
-export type ClientMessage =
-  | BidMessage
-  | GuessMessage;
-
-export interface BaseMessage {
-  type: string;
-}
-
-export interface PlayerJoinedMessage extends BaseMessage {
-  type: "playerJoined";
-  playerId: string;
-  totalPlayers: number;
-}
-
-export interface PlayerLeftMessage extends BaseMessage {
-  type: "playerLeft";
-  playerId: string;
-  totalPlayers: number;
-}
-
-export interface GameStartMessage extends BaseMessage {
-  type: "gameStart";
-  hiddenCard: Card;
-  initialMoney: number;
-  players: Player[];
-  lots: Lot[];
-}
-
-export interface StartAuctionMessage extends BaseMessage {
-  type: "startAuction";
-  round: number;
-  lotIds: number[];
-  money: number;
-}
-
-export interface BidMessage extends BaseMessage {
+// Client Messages
+export type BidMessage = {
   type: "bid";
-  bids: number[][];
-}
+  bids: { lotId: number; amount: number }[];
+};
 
-export interface AuctionResult {
-  lotId: number;
-  winnerId: string;
-  pricePaid: number;
-  cards: Card[];
-}
-
-export interface AuctionResultMessage extends BaseMessage {
-  type: "auctionResult";
-  results: AuctionResult[];
-  players: Player[];
-}
-
-export interface StartGuessingMessage extends BaseMessage {
-  type: "startGuessing";
-  cardsPerPlayer: [string, string[]][];
-}
-
-export interface GuessMessage extends BaseMessage {
+export type GuessMessage = {
   type: "guess";
   targetPlayerId: string;
   card: string;
-}
-
-export interface BidAcceptedMessage extends BaseMessage {
-  type: "bidAccepted";
-}
-
-export interface BidRejectedMessage extends BaseMessage {
-  type: "bidRejected";
-  message: string;
-}
-
-export interface FinalScore {
-  playerId: string;
-  rank: number;
-  money: number;
-  prize: number;
-  guessIncome: number;
-  total: number;
-}
-
-export interface GameOverMessage extends BaseMessage {
-  type: "gameOver";
-  scores: FinalScore[];
-}
-
-export interface Card {
-  suit: "H" | "D" | "C" | "S";
-  rank: number; // 2-14 (11=J,12=Q,13=K,14=A)
-}
-
-export interface Guess {
-  targetPlayerId: string;
-  card: Card;
-}
-
-export interface Player {
-  ws: WebSocket;
-  id: string;
-  money: number;
-  hiddenCard: Card | null;
-  earnedCards: Card[];
-  guess: Guess | null;
-  waitingFor: "bid" | "guess" | null;
-}
-
-export interface Lot {
-  id: number;
-  cards: Card[];
-  bids: Bid[];
-}
-
-export interface Bid {
-  player: Player;
-  lotId: number;
-  amount: number;
-}
-
-export interface GameState {
-  players: Player[];
-  lots: Lot[];
-  currentRound: number;
-}
+};

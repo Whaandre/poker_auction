@@ -6,10 +6,14 @@ import type {
   StartGuessingMessage,
   Lot,
   Player,
+  Card,
 } from "../../server/types";
 
-const name = prompt("Enter your name")!;
+let myName = prompt("Enter your name") || "";
 const socket = new WebSocket("ws://localhost:8080");
+
+// Store players locally to populate dropdowns later
+let knownPlayers: Player[] = [];
 
 // DOM
 const messages = document.getElementById("messages")!;
@@ -18,9 +22,13 @@ const guessBox = document.getElementById("guessBox")!;
 const lotsDiv = document.getElementById("lots")!;
 const moneyDiv = document.getElementById("money")!;
 const bidBtn = document.getElementById("bidBtn")!;
-const guessBtn = document.getElementById("guessBtn")!;
-const guessTarget = document.getElementById("guessTarget") as HTMLInputElement;
-const guessCard = document.getElementById("guessCard") as HTMLInputElement;
+
+// FIX: Cast to HTMLButtonElement to access 'disabled' property
+const guessBtn = document.getElementById("guessBtn") as HTMLButtonElement; 
+
+const guessTarget = document.getElementById("guessTarget") as HTMLSelectElement;
+const guessRank = document.getElementById("guessRank") as HTMLSelectElement;
+const guessSuit = document.getElementById("guessSuit") as HTMLSelectElement;
 const guessInfo = document.getElementById("guessInfo")!;
 
 // Utilities
@@ -28,11 +36,18 @@ function log(msg: string) {
   const p = document.createElement("p");
   p.textContent = msg;
   messages.appendChild(p);
+  messages.scrollTop = messages.scrollHeight;
+}
+
+function sendJoin() {
+  if (socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ type: "join", name: myName }));
+  }
 }
 
 socket.addEventListener("open", () => {
-  socket.send(JSON.stringify({ type: "join", name }));
   log("Connected to server");
+  sendJoin();
 });
 
 socket.addEventListener("close", () => {
@@ -47,6 +62,12 @@ socket.addEventListener("message", (event) => {
 // ---- Server message handler ----
 function handleServerMessage(msg: ServerMessage) {
   switch (msg.type) {
+    case "joinRejected":
+      alert(msg.message);
+      myName = prompt("Enter your name") || "";
+      sendJoin();
+      break;
+
     case "playerJoined":
       log(`${msg.playerId} joined (${msg.totalPlayers} players)`);
       break;
@@ -56,7 +77,8 @@ function handleServerMessage(msg: ServerMessage) {
       break;
 
     case "gameStart":
-      log(`Game started! Hidden card: ${msg.hiddenCard.suit}${msg.hiddenCard.rank}`);
+      log(`Game started!`);
+      renderPlayers(msg.players);
       renderLots(msg.lots);
       break;
       
@@ -83,19 +105,19 @@ function handleServerMessage(msg: ServerMessage) {
       break;
 
     case "bidAccepted":
-      log("Bid Accepted")
+      log("Bid Accepted - Waiting for others...")
       auctionBox.style.display = "none";
       break;
 
     case "bidRejected":
-      log(msg.message)
+      log(`Error: ${msg.message}`)
       break;
   }
 }
 
 // ---------------- Card Rendering Helpers ----------------
 function formatRank(rank: number) {
-  if (rank === 1) return "A";
+  if (rank === 14 || rank === 1) return "A";
   if (rank === 11) return "J";
   if (rank === 12) return "Q";
   if (rank === 13) return "K";
@@ -112,7 +134,7 @@ function formatSuit(suit: string) {
   }
 }
 
-function createCardElement(card: { suit: string; rank: number }) {
+function createCardElement(card: Card) {
   const { symbol, color } = formatSuit(card.suit);
   const rank = formatRank(card.rank);
 
@@ -126,9 +148,20 @@ function createCardElement(card: { suit: string; rank: number }) {
   return div;
 }
 
-function renderCards(cards: { suit: string; rank: number }[]) {
+function createUnknownCard() {
+  const div = document.createElement("div");
+  div.className = "card unknown";
+  div.innerHTML = `
+    <div class="card-rank">?</div>
+    <div class="card-suit"></div>
+  `;
+  return div;
+}
+
+function renderCards(cards: Card[]) {
   const container = document.createElement("div");
   container.className = "cards";
+  container.style.display = "inline-block";
   cards.forEach(c => container.appendChild(createCardElement(c)));
   return container;
 }
@@ -139,24 +172,53 @@ function renderLots(lots: Lot[]) {
   lots.forEach(lot => {
     const div = document.createElement("div");
     div.className = "lot";
-    const title = document.createElement("h4");
-    title.textContent = `Lot ${lot.id}`;
-    div.appendChild(title);
+    div.style.marginBottom = "10px";
+    div.innerHTML = `<strong>Lot ${lot.id}</strong> `;
     div.appendChild(renderCards(lot.cards));
     lotsDiv.appendChild(div);
   });
 }
 
 function renderPlayers(players: Player[]) {
+  // Update local state
+  knownPlayers = players;
+
   const playersDiv = document.getElementById("players")!;
   playersDiv.innerHTML = "";
+  
   players.forEach(player => {
     const div = document.createElement("div");
     div.className = "player";
+    
+    // Header
     const header = document.createElement("div");
     header.innerHTML = `<strong>${player.id}</strong> — $${player.money}`;
     div.appendChild(header);
-    div.appendChild(renderCards(player.earnedCards));
+
+    // Hidden Card Section
+    const hiddenRow = document.createElement("div");
+    hiddenRow.style.margin = "5px 0";
+    const label = document.createElement("span");
+    label.textContent = "Hidden: ";
+    label.style.fontSize = "0.9em";
+    hiddenRow.appendChild(label);
+
+    if (player.id === myName && player.hiddenCard) {
+      hiddenRow.appendChild(createCardElement(player.hiddenCard));
+    } else {
+      hiddenRow.appendChild(createUnknownCard());
+    }
+    div.appendChild(hiddenRow);
+
+    // Earned Cards Section
+    const earnedRow = document.createElement("div");
+    const earnedLabel = document.createElement("span");
+    earnedLabel.textContent = "Earned: ";
+    earnedLabel.style.fontSize = "0.9em";
+    earnedRow.appendChild(earnedLabel);
+    earnedRow.appendChild(renderCards(player.earnedCards));
+    
+    div.appendChild(earnedRow);
     playersDiv.appendChild(div);
   });
 }
@@ -170,25 +232,26 @@ function renderAuction(msg: StartAuctionMessage) {
 
   msg.lotIds.forEach(lotId => {
     const div = document.createElement("div");
+    div.style.margin = "8px 0";
     div.innerHTML = `
-      Lot ${lotId}:
-      <input data-lotid="${lotId}" type="number" placeholder="Bid amount" />
+      <label style="display:inline-block; width: 60px;">Lot ${lotId}:</label>
+      <input data-lotid="${lotId}" type="number" placeholder="Bid (0)" style="width: 80px;" />
     `;
     lotsDiv.appendChild(div);
   });
 }
 
 bidBtn.onclick = () => {
-  const bids: [number, number][] = [];
+  const bids: { lotId: number; amount: number }[] = [];
+  
   lotsDiv.querySelectorAll("input").forEach(input => {
     const lotId = Number((input as HTMLInputElement).dataset.lotid);
-    const amount = Number((input as HTMLInputElement).value);
-    bids.push([lotId, amount]);
+    const val = (input as HTMLInputElement).value;
+    const amount = val === "" ? 0 : Number(val);
+    bids.push({ lotId, amount });
   });
 
-  if (bids.length === 0) return;
-
-  const msg: BidMessage = { type: "bid", bids };
+  const msg: BidMessage = { type: "bid", bids: bids as any };
   socket.send(JSON.stringify(msg));
   log("Bids submitted");
 };
@@ -197,27 +260,46 @@ bidBtn.onclick = () => {
 function renderGuessing(msg: StartGuessingMessage) {
   guessBox.style.display = "block";
   auctionBox.style.display = "none";
+  
+  guessInfo.innerHTML = "<h4>Guessing Phase Started</h4><p>Identify the hidden cards!</p>";
 
-  guessInfo.innerHTML = "";
-  msg.cardsPerPlayer.forEach(([id, cards]) => {
-    const p = document.createElement("p");
-    p.textContent = `${id}: ${cards.join(", ")}`;
-    guessInfo.appendChild(p);
+  // Populate Target Dropdown (Excluding self)
+  guessTarget.innerHTML = "";
+  knownPlayers.forEach(p => {
+    if (p.id !== myName) {
+      const option = document.createElement("option");
+      option.value = p.id;
+      option.textContent = p.id;
+      guessTarget.appendChild(option);
+    }
   });
+  
+  // Logic to disable buttons if no opponents is removed. 
+  // We assume there are always valid targets.
+  guessTarget.disabled = false;
+  guessBtn.disabled = false;
 }
 
 guessBtn.onclick = () => {
-  const target = guessTarget.value.trim();
-  const card = guessCard.value.trim();
-  if (!target || !card) return;
+  const target = guessTarget.value;
+  const rank = guessRank.value;
+  const suit = guessSuit.value;
+
+  if (!target) {
+    log("Please select a player to guess.");
+    return;
+  }
+
+  // Construct card string, e.g., "H14", "D2", "S11"
+  const cardString = suit + rank;
 
   const msg: GuessMessage = {
     type: "guess",
     targetPlayerId: target,
-    card
+    card: cardString
   };
 
   socket.send(JSON.stringify(msg));
-  log(`Guessed ${card} for ${target}`);
+  log(`Guessed ${formatRank(Number(rank))} of ${formatSuit(suit).symbol} for ${target}`);
   guessBox.style.display = "none";
 };
