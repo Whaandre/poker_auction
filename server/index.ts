@@ -7,9 +7,11 @@ import {
 } from "./game";
 import { Bid, Guess, BidMessage, GuessMessage } from "./types";
 
-const wss = new WebSocketServer({ port: 8080 });
+const PORT: number = Number(process.env.PORT) || 8080;
 
-console.log("Server started on port 8080");
+const wss = new WebSocketServer({ port: PORT });
+
+console.log("Server started on port " + PORT);
 
 wss.on("connection", (ws: WebSocket) => {
   let player = null as any;
