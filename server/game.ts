@@ -175,7 +175,9 @@ function endGame() {
     // 1. Evaluate Poker Hands
     const playerEvals = gameState.players.map(p => {
         const allCards = [...p.earnedCards];
-        if (p.hiddenCard) allCards.push(p.hiddenCard);
+        if (!allCards.some(c => c.suit === p.hiddenCard!.suit && c.rank === p.hiddenCard!.rank)) {
+            allCards.push(p.hiddenCard!);
+        }
         
         try {
             const [scoreArray, bestHand] = findBestHand(allCards);
