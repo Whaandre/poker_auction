@@ -1,20 +1,31 @@
-// client/src/components/PlayerHand.tsx
 import React from "react";
-import { Card } from "../../../server/types";
+import type { Card } from "../../../server/types";
 
 interface Props {
-  cards: Card[];
+  hiddenCard: Card | null;
+  earnedCards: Card[];
 }
 
-export const PlayerHand: React.FC<Props> = ({ cards }) => {
+export const PlayerHand: React.FC<Props> = ({ hiddenCard, earnedCards }) => {
+  const renderCard = (card: Card, index: number, isHidden = false) => {
+    const isRed = card.suit === "H" || card.suit === "D";
+    const symbol = { H: "♥", D: "♦", C: "♣", S: "♠" }[card.suit];
+    const rank = card.rank > 10 ? ["J", "Q", "K", "A"][card.rank - 11] : card.rank;
+    
+    return (
+      <div key={index} className={`font-bold text-lg p-3 rounded-lg shadow-sm border-2 inline-block bg-white ${isRed ? "text-red-600" : "text-black"} ${isHidden ? "border-purple-400 bg-purple-50" : "border-gray-200"}`}>
+        {rank}{symbol}
+      </div>
+    );
+  };
+
   return (
-    <div className="my-2 flex gap-2">
-      {cards.map((card, i) => (
-        <div key={i} className="border p-2 rounded bg-white shadow">
-          {card.rank > 10 ? ["J", "Q", "K", "A"][card.rank - 11] : card.rank}
-          {card.suit === "H" ? "♥" : card.suit === "D" ? "♦" : card.suit === "C" ? "♣" : "♠"}
-        </div>
-      ))}
+    <div>
+      <h3 className="font-bold text-gray-700 mb-2">Your Hand</h3>
+      <div className="flex flex-wrap gap-2">
+        {hiddenCard && renderCard(hiddenCard, -1, true)}
+        {earnedCards.map((c, i) => renderCard(c, i))}
+      </div>
     </div>
   );
 };

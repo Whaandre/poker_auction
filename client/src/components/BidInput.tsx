@@ -1,75 +1,49 @@
-// client/src/components/BidInput.tsx
 import React, { useState, useEffect } from "react";
-import { ws } from "../App";
-import { BidMessage } from "../../../server/types";
 
 interface Props {
-  lots: number[];
+  activeLotIds: number[];
+  onSubmit: (bids: { lotId: number; amount: number }[]) => void;
 }
 
-export const BidInput: React.FC<Props> = ({ lots }) => {
-  const [bids, setBids] = useState<number[]>(lots.map(() => 0));
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export const BidInput: React.FC<Props> = ({ activeLotIds, onSubmit }) => {
+  const [bids, setBids] = useState<{ [key: number]: number }>({});
 
+  // Reset inputs when a new round starts
   useEffect(() => {
-    const handleMessage = (event: Event) => {
-      const messageEvent = event as MessageEvent;
-      const msg = JSON.parse(messageEvent.data);
+    setBids({});
+  }, [activeLotIds]);
 
-      if (msg.type === "bidAccepted") {
-        setBids(lots.map(() => 0));
-        setSubmitting(false);
-        setError(null);
-      } else if (msg.type === "bidRejected") {
-        setSubmitting(false);
-        setError(msg.message);
-      }
-    };
-
-    ws.addEventListener("message", handleMessage);
-    return () => ws.removeEventListener("message", handleMessage);
-  }, [lots]);
-
-  const handleChange = (index: number, value: number) => {
-    const newBids = [...bids];
-    newBids[index] = value;
-    setBids(newBids);
-  };
-
-  const sendBids = () => {
-    setSubmitting(true);
-    setError(null);
-    const message: BidMessage = {
-      type: "bid",
-      bids: lots.map((lotId, i) => [lotId, bids[i]]),
-    };
-    ws.send(JSON.stringify({ message: JSON.stringify(message) }));
+  const handleSubmit = () => {
+    const formattedBids = activeLotIds.map(id => ({
+      lotId: id,
+      amount: bids[id] || 0
+    }));
+    onSubmit(formattedBids);
   };
 
   return (
-    <div className="my-4">
-      <h3 className="font-semibold">Place Your Bids</h3>
-      {error && <p className="text-red-500 mb-2">{error}</p>}
-      {lots.map((lotId, i) => (
-        <div key={lotId} className="flex items-center gap-2 my-1">
-          <label>Lot {lotId + 1}:</label>
-          <input
-            type="number"
-            min={0}
-            value={bids[i]}
-            onChange={(e) => handleChange(i, parseInt(e.target.value))}
-            disabled={submitting}
-            className="border p-1 rounded w-20 disabled:opacity-50"
-          />
-        </div>
-      ))}
-      <button
-        onClick={sendBids}
-        disabled={submitting}
-        className="mt-2 bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+    <div className="bg-blue-50 p-6 rounded-xl border border-blue-100 mt-6">
+      <h3 className="font-bold text-lg mb-4 text-blue-900">Place Your Bids</h3>
+      <div className="flex flex-col gap-3 mb-4">
+        {activeLotIds.map(lotId => (
+          <div key={lotId} className="flex items-center gap-4">
+            <label className="font-semibold w-16">Lot {lotId + 1}:</label>
+            <input
+              type="number"
+              min="0"
+              placeholder="0"
+              value={bids[lotId] || ""}
+              onChange={(e) => setBids({ ...bids, [lotId]: parseInt(e.target.value) || 0 })}
+              className="border border-gray-300 p-2 rounded-lg w-32 focus:ring-2 focus:ring-blue-400 outline-none"
+            />
+          </div>
+        ))}
+      </div>
+      <button 
+        onClick={handleSubmit}
+        className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition"
       >
-        {submitting ? "Submitting..." : "Submit Bids"}
+        Submit Bids
       </button>
     </div>
   );
