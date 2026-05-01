@@ -1,3 +1,5 @@
+import express from "express";
+import path from "path";
 import { WebSocketServer, WebSocket } from "ws";
 import { 
   addPlayer, 
@@ -7,9 +9,24 @@ import {
 } from "./game";
 import { Bid, Guess, BidMessage, GuessMessage } from "./types";
 
+const app = express();
 const PORT: number = Number(process.env.PORT) || 8080;
+const port = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
-const wss = new WebSocketServer({ port: PORT });
+const clientDistPath = path.join(process.cwd(), "client/dist");
+app.use(express.static(clientDistPath));
+
+app.get("/{*splat}", (req, res) => {
+  res.sendFile(path.join(clientDistPath, "index.html"));
+});
+
+// 3. Start the standard HTTP web server
+const server = app.listen(port, () => {
+  console.log(`HTTP and WebSocket server running on port ${port}`);
+});
+
+// 4. Attach your WebSocket server to the SAME port
+const wss = new WebSocketServer({ server });
 
 console.log("Server started on port " + PORT);
 
