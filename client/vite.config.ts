@@ -7,7 +7,5 @@ export default defineConfig({
   plugins: [react()],
   build: {
     outDir: 'new-ui-build', // Changed from 'dist'
-  },
-  // Set this to '/<REPO_NAME>/'
-  base: '/poker_auction/', 
+  }
 })
