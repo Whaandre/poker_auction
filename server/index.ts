@@ -14,11 +14,11 @@ const PORT: number = Number(process.env.PORT) || 8080;
 const port = process.env.PORT ? parseInt(process.env.PORT) : 8080;
 
 const server = app.listen(port, "0.0.0.0", () => {
-  console.log(`Server running on port ${port}`);
+  console.log(`=== NEW SERVER DEPLOYMENT V4 ===`);
+  console.log(`HTTP and WebSocket server running on port ${port}`);
 });
 
 
-console.log("=== NEW SERVER DEPLOYMENT V2 ===");
 const clientDistPath = path.join(process.cwd(), "client/dist");
 console.log("Express is trying to serve React files from:", clientDistPath);
 app.use(express.static(clientDistPath));
