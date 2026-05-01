@@ -19,7 +19,8 @@ const server = app.listen(port, "0.0.0.0", () => {
 });
 
 
-const clientDistPath = path.join(process.cwd(), "client/dist");
+// Update the path to match the new folder name
+const clientDistPath = path.resolve(__dirname, '..', 'client', 'new-ui-build');
 console.log("Express is trying to serve React files from:", clientDistPath);
 app.use(express.static(clientDistPath));
 
