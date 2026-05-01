@@ -2,11 +2,11 @@
   "name": "poker_auction",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "server/index.ts",
   "scripts": {
-    "build": "tsc",
-    "start": "node dist/index.js",
-    "dev": "ts-node server/index.ts"
+    "build": "cd client && npm install && npm run build",
+    "start": "npx tsx server/index.ts",
+    "dev": "npx tsx server/index.ts"
   },
   "repository": {
     "type": "git",
