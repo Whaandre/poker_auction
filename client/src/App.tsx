@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 import React, { useState, useEffect, useRef } from "react";
 import { PlayerHand } from "./components/PlayerHand";
 import { AuctionLot } from "./components/AuctionLot";
@@ -129,7 +131,7 @@ const App: React.FC = () => {
           <GuessPhase players={players} playerName={playerName} onSubmit={handleGuess} />
         ) : phase === "gameOver" ? (
           <GameOver scores={scores} />
-        )}
+        ) : null}
       </div>
 
       {/* Right Column: Status & Logs */}
