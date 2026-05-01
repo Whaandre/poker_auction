@@ -119,14 +119,26 @@ const App: React.FC = () => {
             <p>The game will start automatically when 8 players join.</p>
           </div>
         ) : phase === "auction" ? (
-          <>
-            <div className="flex justify-between items-end mb-4">
-              <PlayerHand hiddenCard={hiddenCard} earnedCards={myPlayer?.earnedCards || []} />
-              <div className="text-2xl font-bold text-green-700">Money: ${money}</div>
+          <div className="bg-white p-6 rounded-xl shadow-lg border-2 border-blue-200">
+            
+            {/* Header: Hand & Money */}
+            <div className="flex justify-between items-start mb-6 border-b-2 border-gray-100 pb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-blue-900 mb-3">Auction Phase</h2>
+                <PlayerHand hiddenCard={hiddenCard} earnedCards={myPlayer?.earnedCards || []} />
+              </div>
+              <div className="bg-green-100 text-green-800 px-6 py-3 rounded-xl text-2xl font-extrabold border-2 border-green-300 shadow-sm">
+                ${money}
+              </div>
             </div>
-            <AuctionLot activeLots={activeLots} />
+            
+            {/* The Lots & Bidding */}
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-6">
+               <AuctionLot allLots={allLots} activeLotIds={activeLotIds} />
+            </div>
+            
             <BidInput activeLotIds={activeLotIds} onSubmit={handleBid} />
-          </>
+          </div>
         ) : phase === "guessing" ? (
           <GuessPhase players={players} playerName={playerName} onSubmit={handleGuess} />
         ) : phase === "gameOver" ? (
